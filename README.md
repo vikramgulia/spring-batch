@@ -547,8 +547,11 @@ public class Application {
 Done. Let us now run our app -
 
 1. Go to terminal and use our build tool to run it - run the cmd -
+
 > `./gradlew build bootRun`.
+
 2. You can build the jar for the app and then run it - run cmd -
+
 >`./gradlew build bootRepackage`
 
 and then run
