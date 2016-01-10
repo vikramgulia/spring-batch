@@ -17,6 +17,7 @@ You can clone this project `git clone https://github.com/vikramgulia/spring-batc
 
 ### Setting the build tool
 we will set up the `build.gradle` in project directory with plugin `java` and `spring-boot`. Also, we will add following dependencies -
+
 1. `spring-boot-starter-batch` - to pull in spring batch classes.
 2. `spring-boot-starter-data-jpa` - to handle the datasource and pull in `spring-jdbc` dependencies.
 3. `mysql-connector-java` - java connector for MySQL database.
@@ -232,6 +233,7 @@ public class DatabaseConfig {
 
 ### Hooking up batch framework
 Now, we hook up spring batch components to link up all pieces together - we create the class `BatchConfiguration` and use this annotations -
+
 1. `@Configuration` - this tell spring that its a configuration class.
 2. `@EnableBatchProcessing` - this adds a lot of important beans which will support the batch.
 
@@ -543,6 +545,7 @@ public class Application {
 
 ## Running the app
 Done. Let us now run our app -
+
 1. Go to terminal and use our build tool to run it - run the cmd - `./gradlew build bootRun`.
 2. You can build the jar for the app and then run it - run cmd - `./gradlew build bootRepackage` and then run `java -jar build/libs/spring-batch-1.0.0.jar`.
 
