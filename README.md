@@ -546,8 +546,13 @@ public class Application {
 ## Running the app
 Done. Let us now run our app -
 
-1. Go to terminal and use our build tool to run it - run the cmd - `./gradlew build bootRun`.
-2. You can build the jar for the app and then run it - run cmd - `./gradlew build bootRepackage` and then run `java -jar build/libs/spring-batch-1.0.0.jar`.
+1. Go to terminal and use our build tool to run it - run the cmd -
+> `./gradlew build bootRun`.
+2. You can build the jar for the app and then run it - run cmd -
+>`./gradlew build bootRepackage`
+
+and then run
+>`java -jar build/libs/spring-batch-1.0.0.jar`.
 
 Here is the expected output -
 
