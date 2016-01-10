@@ -8,11 +8,8 @@ import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.listener.JobExecutionListenerSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 
 @Component
@@ -28,15 +25,12 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
         if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
             log.info("!!! JOB FINISHED! Time to verify the results");
 
-            List<WriterSO> results = jdbcTemplate.query("SELECT id, full_name, random_num FROM writer", new RowMapper<WriterSO>() {
-                @Override
-                public WriterSO mapRow(ResultSet rs, int row) throws SQLException {
-                    WriterSO writerSO = new WriterSO();
-                    writerSO.setId(rs.getLong("id"));
-                    writerSO.setFullName(rs.getString("full_name"));
-                    writerSO.setRandomNum(rs.getString("random_num"));
-                    return writerSO;
-                }
+            List<WriterSO> results = jdbcTemplate.query("SELECT id, full_name, random_num FROM writer", (rs, row) -> {
+                WriterSO writerSO = new WriterSO();
+                writerSO.setId(rs.getLong("id"));
+                writerSO.setFullName(rs.getString("full_name"));
+                writerSO.setRandomNum(rs.getString("random_num"));
+                return writerSO;
             });
 
             for (WriterSO writerSO : results) {

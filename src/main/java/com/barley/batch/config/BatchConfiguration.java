@@ -19,16 +19,12 @@ import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourc
 import org.springframework.batch.item.database.ItemPreparedStatementSetter;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
 import javax.sql.DataSource;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 
 @Configuration
 @EnableBatchProcessing
@@ -38,12 +34,11 @@ public class BatchConfiguration {
 
     @Bean
     public ItemReader<RecordSO> reader(DataSource dataSource) {
-        JdbcCursorItemReader<RecordSO> reader = new JdbcCursorItemReader<RecordSO>();
+        JdbcCursorItemReader<RecordSO> reader = new JdbcCursorItemReader<>();
         reader.setSql("select id, firstName, lastname, random_num from reader");
         reader.setDataSource(dataSource);
         reader.setRowMapper(
                 (ResultSet resultSet, int rowNum) -> {
-                    LOGGER.info("RowMapper resultset: {}", resultSet);
                     if (!(resultSet.isAfterLast()) && !(resultSet.isBeforeFirst())) {
                         RecordSO recordSO = new RecordSO();
                         recordSO.setFirstName(resultSet.getString("firstName"));
@@ -69,7 +64,7 @@ public class BatchConfiguration {
     @Bean
     public ItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
         JdbcBatchItemWriter<WriterSO> writer = new JdbcBatchItemWriter<>();
-        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<WriterSO>());
+        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
         writer.setItemPreparedStatementSetter(setter);
         writer.setSql("insert into writer (id, full_name, random_num) values (?,?,?)");
         writer.setDataSource(dataSource);
@@ -78,15 +73,11 @@ public class BatchConfiguration {
 
     @Bean
     public ItemPreparedStatementSetter<WriterSO> setter() {
-        ItemPreparedStatementSetter<WriterSO> itemPreparedStatementSetter = new ItemPreparedStatementSetter<WriterSO>() {
-            @Override
-            public void setValues(WriterSO item, PreparedStatement ps) throws SQLException {
-                ps.setLong(1, item.getId());
-                ps.setString(2, item.getFullName());
-                ps.setString(3, item.getRandomNum());
-            }
+        return (item, ps) -> {
+            ps.setLong(1, item.getId());
+            ps.setString(2, item.getFullName());
+            ps.setString(3, item.getRandomNum());
         };
-        return itemPreparedStatementSetter;
     }
 
     @Bean
