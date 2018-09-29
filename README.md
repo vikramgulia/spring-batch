@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/geekyjaat/spring-batch.svg?branch=master)](https://travis-ci.org/geekyjaat/spring-batch)
+
 # spring-batch
 This is a spring batch demo application using the `org.springframework.boot:spring-boot-starter-batch`. The batch is pulling records from a database, process them and insert the processed records back into a new database table.
 
