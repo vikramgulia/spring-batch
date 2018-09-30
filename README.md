@@ -30,11 +30,12 @@ Here is what our build.gradle looks like -
 > `build.gradle`
 
 ```groovy
-   group 'com.barley.batch'
-   version '1.0.0'
+    group 'com.geeky.batch'
+    version '1.0.0'
 
     apply plugin: 'java'
-    apply plugin: 'spring-boot'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -48,7 +49,7 @@ Here is what our build.gradle looks like -
             mavenCentral()
         }
         dependencies {
-            classpath('org.springframework.boot:spring-boot-gradle-plugin:1.3.1.RELEASE')
+            classpath('org.springframework.boot:spring-boot-gradle-plugin:2.0.5.RELEASE')
         }
     }
 
@@ -58,16 +59,9 @@ Here is what our build.gradle looks like -
 
     dependencies {
         compile('org.springframework.boot:spring-boot-starter-batch')
-        compile('org.springframework.boot:spring-boot-starter-data-jpa') {
-            exclude group: "org.slf4j", module: "log4j-over-slf4j"
-            exclude group: "ch.qos.logback", module: "logback-classic"
-        }
+        compile('org.springframework.boot:spring-boot-starter-data-jpa')
         compile('mysql:mysql-connector-java:5.1.38')
         testCompile('junit:junit')
-    }
-
-    task wrapper(type: Wrapper) {
-        gradleVersion = '2.3'
     }
 ```
 
@@ -78,8 +72,6 @@ We will add 2 classes to handle our model i.e. input and output data. Here, our 
 > `src/main/java/com/barley/batch/model/RecordSO.java`
 
 ```java
-    package com.barley.batch.model;
-
     public class RecordSO {
 
         private long id;
@@ -87,37 +79,8 @@ We will add 2 classes to handle our model i.e. input and output data. Here, our 
         private String lastName;
         private String randomNum;
 
-        public long getId() {
-            return id;
-        }
-
-        public void setId(long id) {
-            this.id = id;
-        }
-
-        public String getFirstName() {
-            return firstName;
-        }
-
-        public void setFirstName(String firstName) {
-            this.firstName = firstName;
-        }
-
-        public String getLastName() {
-            return lastName;
-        }
-
-        public void setLastName(String lastName) {
-            this.lastName = lastName;
-        }
-
-        public String getRandomNum() {
-            return randomNum;
-        }
-
-        public void setRandomNum(String randomNum) {
-            this.randomNum = randomNum;
-        }
+        ...getter
+        ...setter
     }
 ```
 
@@ -126,37 +89,14 @@ We will add 2 classes to handle our model i.e. input and output data. Here, our 
 #### WriterSO
 
 ```java
-    package com.barley.batch.model;
-
     public class WriterSO {
 
         private long id;
         private String fullName;
         private String randomNum;
 
-        public long getId() {
-            return id;
-        }
-
-        public void setId(long id) {
-            this.id = id;
-        }
-
-        public String getFullName() {
-            return fullName;
-        }
-
-        public void setFullName(String fullName) {
-            this.fullName = fullName;
-        }
-
-        public String getRandomNum() {
-            return randomNum;
-        }
-
-        public void setRandomNum(String randomNum) {
-            this.randomNum = randomNum;
-        }
+        ...getter
+        ...setter
     }
 ```
 
@@ -166,14 +106,6 @@ Now we will set up the processor class which will implement spring interface `It
 > `src/main/java/com/barley/batch/processor/RecordProcessor.java`
 
 ```java
-    package com.barley.batch.processor;
-
-    import com.barley.batch.model.RecordSO;
-    import com.barley.batch.model.WriterSO;
-    import org.slf4j.Logger;
-    import org.slf4j.LoggerFactory;
-    import org.springframework.batch.item.ItemProcessor;
-
     public class RecordProcessor implements ItemProcessor<RecordSO, WriterSO> {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(RecordProcessor.class);
@@ -196,10 +128,11 @@ Now, we need to set up some spring datasource properties which will help spring 
 > `src/main/resources/application.properties`
 
 ```
+spring.batch.initialize-schema=ALWAYS
 spring.datasource.driverClassName=com.mysql.jdbc.Driver
 spring.datasource.url=jdbc:mysql://localhost:3306/batch
-spring.datasource.username=user
-spring.datasource.password=pass
+spring.datasource.username=root
+spring.datasource.password=root
 spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
 spring.jpa.show-sql=false
 # use below property only if you want spring to use user-configured sql create-drop databases tables. Skip it all tables/data already present.
@@ -207,31 +140,7 @@ spring.jpa.hibernate.ddl-auto=create-drop
 ```
 
 ### Primary Database
-Let us set up our primary database config. Create `DatabaseConfig` in package `com.barley.batch.db` in `main/java` -
-> `src/main/java/com/barley/batch/db/DatabaseConfig.java`
-
-```java
-package com.barley.batch.db;
-
-import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-
-import javax.sql.DataSource;
-
-@Configuration
-public class DatabaseConfig {
-
-    @ConfigurationProperties(prefix = "spring.datasource")
-    @Bean
-    @Primary
-    public DataSource dataSource() {
-        return DataSourceBuilder.create().build();
-    }
-}
-```
+With spring auto-configuration, the datasource will be configured based `application.properties` and jars on the classpath. if you are using more than 1, you can set up one of datasources as `@Primary` `@Bean`.
 
 ### Hooking up batch framework
 Now, we hook up spring batch components to link up all pieces together - we create the class `BatchConfiguration` and use this annotations -
@@ -241,10 +150,10 @@ Now, we hook up spring batch components to link up all pieces together - we crea
 
 
 ```java
-@Configuration
-@EnableBatchProcessing
-public class BatchConfiguration {
-}
+    @Configuration
+    @EnableBatchProcessing
+    public class BatchConfiguration {
+    }
 ```
 
 #### ItemReader
@@ -252,13 +161,10 @@ Below method creates an `ItemReader` which will read records from `reader` table
 
 ```java
     @Bean
-    public ItemReader<RecordSO> reader(DataSource dataSource) {
-        JdbcCursorItemReader<RecordSO> reader = new JdbcCursorItemReader<RecordSO>();
-        reader.setSql("select id, firstName, lastname, random_num from reader");
-        reader.setDataSource(dataSource);
-        reader.setRowMapper(
-                (ResultSet resultSet, int rowNum) -> {
-                    LOGGER.info("RowMapper resultset: {}", resultSet);
+    public ItemReader<RecordSO> reader() {
+        return new JdbcCursorItemReaderBuilder<RecordSO>().name("the-reader")
+                .sql("select id, firstName, lastname, random_num from reader").dataSource(dataSource)
+                .rowMapper((ResultSet resultSet, int rowNum) -> {
                     if (!(resultSet.isAfterLast()) && !(resultSet.isBeforeFirst())) {
                         RecordSO recordSO = new RecordSO();
                         recordSO.setFirstName(resultSet.getString("firstName"));
@@ -272,8 +178,7 @@ Below method creates an `ItemReader` which will read records from `reader` table
                         LOGGER.info("Returning null from rowMapper");
                         return null;
                     }
-                });
-        return reader;
+                }).build();
     }
 ```
 
@@ -282,13 +187,11 @@ Below method creates an `ItemWriter` which will be using the datasouce and will 
 
 ```java
     @Bean
-    public ItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
-        JdbcBatchItemWriter<WriterSO> writer = new JdbcBatchItemWriter<>();
-        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<WriterSO>());
-        writer.setItemPreparedStatementSetter(setter);
-        writer.setSql("insert into writer (id, full_name, random_num) values (?,?,?)");
-        writer.setDataSource(dataSource);
-        return writer;
+    public JdbcBatchItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
+        return new JdbcBatchItemWriterBuilder<WriterSO>()
+                .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+                .itemPreparedStatementSetter(setter)
+                .sql("insert into writer (id, full_name, random_num) values (?,?,?)").dataSource(dataSource).build();
     }
 ```
 
@@ -321,192 +224,54 @@ Now Spring batch works with concept of jobs, and each job consist of steps where
 
 ```java
     @Bean
-    public Job importUserJob(JobBuilderFactory jobs, Step s1, JobExecutionListener listener) {
-        return jobs.get("importUserJob")
-                .incrementer(new RunIdIncrementer())
-                .listener(listener)
-                .flow(s1)
-                .end()
-                .build();
+    public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
+        return jobBuilderFactory.get("importUserJob").incrementer(new RunIdIncrementer()).listener(listener).flow(step1)
+                .end().build();
     }
 
     @Bean
-    public Step step1(StepBuilderFactory stepBuilderFactory, ItemReader<RecordSO> reader,
-                      ItemWriter<WriterSO> writer, ItemProcessor<RecordSO, WriterSO> processor) {
-        return stepBuilderFactory.get("step1")
-                .<RecordSO, WriterSO>chunk(5)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)
-                .build();
-    }
-
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
+    public Step step1(JdbcBatchItemWriter<WriterSO> writer, ItemReader<RecordSO> reader) {
+        return stepBuilderFactory.get("step1").<RecordSO, WriterSO>chunk(5).reader(reader).processor(processor())
+                .writer(writer).build();
     }
 ```
 
+Complete code -
 > `src/main/java/com/barley/batch/config/BatchConfiguration.java`
-
-```java
-package com.barley.batch.config;
-
-import com.barley.batch.model.RecordSO;
-import com.barley.batch.model.WriterSO;
-import com.barley.batch.processor.RecordProcessor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecutionListener;
-import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
-import org.springframework.batch.item.database.ItemPreparedStatementSetter;
-import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import javax.sql.DataSource;
-import java.sql.ResultSet;
-
-@Configuration
-@EnableBatchProcessing
-public class BatchConfiguration {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(BatchConfiguration.class);
-
-    @Bean
-    public ItemReader<RecordSO> reader(DataSource dataSource) {
-        JdbcCursorItemReader<RecordSO> reader = new JdbcCursorItemReader<>();
-        reader.setSql("select id, firstName, lastname, random_num from reader");
-        reader.setDataSource(dataSource);
-        reader.setRowMapper(
-                (ResultSet resultSet, int rowNum) -> {
-                    LOGGER.info("RowMapper resultset: {}", resultSet);
-                    if (!(resultSet.isAfterLast()) && !(resultSet.isBeforeFirst())) {
-                        RecordSO recordSO = new RecordSO();
-                        recordSO.setFirstName(resultSet.getString("firstName"));
-                        recordSO.setLastName(resultSet.getString("lastname"));
-                        recordSO.setId(resultSet.getInt("Id"));
-                        recordSO.setRandomNum(resultSet.getString("random_num"));
-
-                        LOGGER.info("RowMapper record : {}", recordSO);
-                        return recordSO;
-                    } else {
-                        LOGGER.info("Returning null from rowMapper");
-                        return null;
-                    }
-                });
-        return reader;
-    }
-
-    @Bean
-    public ItemProcessor<RecordSO, WriterSO> processor() {
-        return new RecordProcessor();
-    }
-
-    @Bean
-    public ItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
-        JdbcBatchItemWriter<WriterSO> writer = new JdbcBatchItemWriter<>();
-        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
-        writer.setItemPreparedStatementSetter(setter);
-        writer.setSql("insert into writer (id, full_name, random_num) values (?,?,?)");
-        writer.setDataSource(dataSource);
-        return writer;
-    }
-
-    @Bean
-    public ItemPreparedStatementSetter<WriterSO> setter() {
-        return (item, ps) -> {
-            ps.setLong(1, item.getId());
-            ps.setString(2, item.getFullName());
-            ps.setString(3, item.getRandomNum());
-        };
-    }
-
-    @Bean
-    public Job importUserJob(JobBuilderFactory jobs, Step s1, JobExecutionListener listener) {
-        return jobs.get("importUserJob")
-                .incrementer(new RunIdIncrementer())
-                .listener(listener)
-                .flow(s1)
-                .end()
-                .build();
-    }
-
-    @Bean
-    public Step step1(StepBuilderFactory stepBuilderFactory, ItemReader<RecordSO> reader,
-                      ItemWriter<WriterSO> writer, ItemProcessor<RecordSO, WriterSO> processor) {
-        return stepBuilderFactory.get("step1")
-                .<RecordSO, WriterSO>chunk(5)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)
-                .build();
-    }
-
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
-    }
-}
-```
 
 ### Listener
 well, we are pretty much ready but we can configure a listener which helps us hook up into spring batch and get to know when the job is finished. This allows us to execute any logic we want to do after completion of batch.
 > `src/main/java/com/barley/batch/listener/JobCompletionNotificationListener.java`
 
 ```java
-package com.barley.batch.listener;
 
-import com.barley.batch.model.WriterSO;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.listener.JobExecutionListenerSupport;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
+    @Component
+    public class JobCompletionNotificationListener extends JobExecutionListenerSupport {
 
-import java.util.List;
+        private static final Logger log = LoggerFactory.getLogger(JobCompletionNotificationListener.class);
 
-@Component
-public class JobCompletionNotificationListener extends JobExecutionListenerSupport {
+        @Autowired
+        private JdbcTemplate jdbcTemplate;
 
-    private static final Logger log = LoggerFactory.getLogger(JobCompletionNotificationListener.class);
+        @Override
+        public void afterJob(JobExecution jobExecution) {
+            if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
+                log.info("!!! JOB FINISHED! Time to verify the results");
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+                List<WriterSO> results = jdbcTemplate.query("SELECT id, full_name, random_num FROM writer", (rs, row) -> {
+                    WriterSO writerSO = new WriterSO();
+                    writerSO.setId(rs.getLong("id"));
+                    writerSO.setFullName(rs.getString("full_name"));
+                    writerSO.setRandomNum(rs.getString("random_num"));
+                    return writerSO;
+                });
 
-    @Override
-    public void afterJob(JobExecution jobExecution) {
-        if (jobExecution.getStatus() == BatchStatus.COMPLETED) {
-            log.info("!!! JOB FINISHED! Time to verify the results");
-
-            List<WriterSO> results = jdbcTemplate.query("SELECT id, full_name, random_num FROM writer", (rs, row) -> {
-                WriterSO writerSO = new WriterSO();
-                writerSO.setId(rs.getLong("id"));
-                writerSO.setFullName(rs.getString("full_name"));
-                writerSO.setRandomNum(rs.getString("random_num"));
-                return writerSO;
-            });
-
-            for (WriterSO writerSO : results) {
-                log.info("Found <" + writerSO + "> in the database.");
+                for (WriterSO writerSO : results) {
+                    log.info("Found <" + writerSO + "> in the database.");
+                }
             }
         }
     }
-}
 ```
 
 ### Setting up our database tables -
@@ -532,17 +297,12 @@ INSERT INTO `reader` (`firstName`, `lastName`, `random_num`) VALUES ('spring', '
 > `src/main/java/com/barley/batch/Application.java`
 
 ```java
-package com.barley.batch;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class Application {
-    public static void main(String[] args) throws Exception {
-        SpringApplication.run(Application.class, args);
+    @SpringBootApplication
+    public class Application {
+        public static void main(String[] args) throws Exception {
+            SpringApplication.run(Application.class, args);
+        }
     }
-}
 ```
 
 ## Running the app
