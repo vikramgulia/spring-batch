@@ -1,12 +1,17 @@
 package com.barley.batch.config;
 
+import java.sql.ResultSet;
+
+import javax.sql.DataSource;
+
+import com.barley.batch.listener.JobCompletionNotificationListener;
 import com.barley.batch.model.RecordSO;
 import com.barley.batch.model.WriterSO;
 import com.barley.batch.processor.RecordProcessor;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
@@ -14,17 +19,14 @@ import org.springframework.batch.core.configuration.annotation.StepBuilderFactor
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.ItemPreparedStatementSetter;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import javax.sql.DataSource;
-import java.sql.ResultSet;
 
 @Configuration
 @EnableBatchProcessing
@@ -32,13 +34,20 @@ public class BatchConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BatchConfiguration.class);
 
+    @Autowired
+    private JobBuilderFactory jobBuilderFactory;
+
+    @Autowired
+    private StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    private DataSource dataSource;
+
     @Bean
-    public ItemReader<RecordSO> reader(DataSource dataSource) {
-        JdbcCursorItemReader<RecordSO> reader = new JdbcCursorItemReader<>();
-        reader.setSql("select id, firstName, lastname, random_num from reader");
-        reader.setDataSource(dataSource);
-        reader.setRowMapper(
-                (ResultSet resultSet, int rowNum) -> {
+    public ItemReader<RecordSO> reader() {
+        return new JdbcCursorItemReaderBuilder<RecordSO>().name("the-reader")
+                .sql("select id, firstName, lastname, random_num from reader").dataSource(dataSource)
+                .rowMapper((ResultSet resultSet, int rowNum) -> {
                     if (!(resultSet.isAfterLast()) && !(resultSet.isBeforeFirst())) {
                         RecordSO recordSO = new RecordSO();
                         recordSO.setFirstName(resultSet.getString("firstName"));
@@ -52,8 +61,7 @@ public class BatchConfiguration {
                         LOGGER.info("Returning null from rowMapper");
                         return null;
                     }
-                });
-        return reader;
+                }).build();
     }
 
     @Bean
@@ -62,13 +70,11 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public ItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
-        JdbcBatchItemWriter<WriterSO> writer = new JdbcBatchItemWriter<>();
-        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
-        writer.setItemPreparedStatementSetter(setter);
-        writer.setSql("insert into writer (id, full_name, random_num) values (?,?,?)");
-        writer.setDataSource(dataSource);
-        return writer;
+    public JdbcBatchItemWriter<WriterSO> writer(DataSource dataSource, ItemPreparedStatementSetter<WriterSO> setter) {
+        return new JdbcBatchItemWriterBuilder<WriterSO>()
+                .itemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>())
+                .itemPreparedStatementSetter(setter)
+                .sql("insert into writer (id, full_name, random_num) values (?,?,?)").dataSource(dataSource).build();
     }
 
     @Bean
@@ -81,28 +87,14 @@ public class BatchConfiguration {
     }
 
     @Bean
-    public Job importUserJob(JobBuilderFactory jobs, Step s1, JobExecutionListener listener) {
-        return jobs.get("importUserJob")
-                .incrementer(new RunIdIncrementer())
-                .listener(listener)
-                .flow(s1)
-                .end()
-                .build();
+    public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
+        return jobBuilderFactory.get("importUserJob").incrementer(new RunIdIncrementer()).listener(listener).flow(step1)
+                .end().build();
     }
 
     @Bean
-    public Step step1(StepBuilderFactory stepBuilderFactory, ItemReader<RecordSO> reader,
-                      ItemWriter<WriterSO> writer, ItemProcessor<RecordSO, WriterSO> processor) {
-        return stepBuilderFactory.get("step1")
-                .<RecordSO, WriterSO>chunk(5)
-                .reader(reader)
-                .processor(processor)
-                .writer(writer)
-                .build();
-    }
-
-    @Bean
-    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-        return new JdbcTemplate(dataSource);
+    public Step step1(JdbcBatchItemWriter<WriterSO> writer, ItemReader<RecordSO> reader) {
+        return stepBuilderFactory.get("step1").<RecordSO, WriterSO>chunk(5).reader(reader).processor(processor())
+                .writer(writer).build();
     }
 }
