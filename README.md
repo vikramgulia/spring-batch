@@ -15,7 +15,7 @@ process them and insert the results into another database table. We will use [gr
 
 
 ## Getting Started
-You can clone this project `git clone https://github.com/vikramgulia/spring-batch.git`, run it and expand it further. Or read the tutorial below to start from scratch.
+You can clone this project `git clone https://github.com/geekyjaat/spring-batch.git`, run it and expand it further. Or read the tutorial below to start from scratch.
 
 ### Setting the build tool
 we will set up the `build.gradle` in project directory with plugin `java` and `spring-boot`. Also, we will add following dependencies -
